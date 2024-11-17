@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0"
+    />
+    <title>Dice Game</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="gridArea"></div>
+    <img
+      id="RedPiece"
+      src="Images/Pieces/RedPiece.png"
+      class="Piece"
+      alt="Red Player Piece"
+    />
+    <img
+      id="BluePiece"
+      src="Images/Pieces/BluePiece.png"
+      class="Piece"
+      alt="Blue Player Piece"
+    />
+    <button id="randomButton" class="random" disabled>Roll The Dice!</button
+    ><br /><br />
+    <label id="nameLabel" class="Roll"></label><br /><br />
+    <label id="randomNum" class="Roll"></label>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="ObstacleScripts/obstacle1.js"></script>
+    <script src="ObstacleScripts/obstacle3.js"></script>
+    <script src="ObstacleScripts/obstacle2.js"></script>
+    <script src="ObstacleScripts/obstacle4.js"></script>
+    <script>
+      const socket = io();
+      let playerRole = '';
+      let gridPositions = {};
+      let redPieceCurrentPosition = 1;
+      let bluePieceCurrentPosition = 1;
+      let firstStuckPlayer = null;
+      let playerStuck = {
+        'Player 1': false,
+        'Player 2': false,
+      };
+      let playerInjured = {
+        'Player 1': false,
+        'Player 2': false,
+      };
+      function updateNameLabel(message) {
+        document.getElementById('nameLabel').textContent = message;
+      }
+      socket.on('playerRole', (role) => {
+        playerRole = role;
+        if (role === 'Player 1') {
+          updateNameLabel(`You are Player 1. Waiting for Player 2 to join.`);
+        } else {
+          updateNameLabel(`You are ${role}`);
+        }
+      });
+      socket.on('turn', (currentTurn) => {
+        const rollButton = document.getElementById('randomButton');
+
+        if (playerStuck['Player 1'] && playerStuck['Player 2']) {
+          if (firstStuckPlayer) {
+            const nextPlayer = firstStuckPlayer;
+            currentTurn = nextPlayer;
+            updateNameLabel(`${nextPlayer} is unstuck and can continue!`);
+            io.emit('turn', currentTurn);
+          }
+        } else if (playerStuck[currentTurn]) {
+          playerStuck[currentTurn] = false;
+          updateNameLabel(
+            `${currentTurn} is stuck in a swamp. Their turn is skipped.`
+          );
+
+          setTimeout(() => {
+            socket.emit('skipTurn', currentTurn);
+          }, 1500);
+        } else if (currentTurn === playerRole) {
+          rollButton.disabled = false;
+          updateNameLabel('Your turn!');
+        } else {
+          rollButton.disabled = true;
+          updateNameLabel(`Waiting for ${currentTurn} to roll`);
+        }
+      });
+
+      socket.on('turnSkipped', ({ skippedPlayer }) => {
+        if (playerRole === skippedPlayer) {
+          updateNameLabel('Your turn was skipped due to a swamp.');
+        }
+      });
+
+      socket.on('movePiece', ({ mover, steps }) => {
+        let movingPiece, pieceCurrentPosition, currentPosition;
+
+        if (mover === 'Player 1') {
+          movingPiece = document.getElementById('RedPiece');
+          pieceCurrentPosition = redPieceCurrentPosition;
+          redPieceCurrentPosition += steps;
+          redPieceCurrentPosition = Math.max(
+            1,
+            Math.min(redPieceCurrentPosition, 49)
+          );
+          currentPosition = redPieceCurrentPosition;
+        } else {
+          movingPiece = document.getElementById('BluePiece');
+          pieceCurrentPosition = bluePieceCurrentPosition;
+          bluePieceCurrentPosition += steps;
+          bluePieceCurrentPosition = Math.max(
+            1,
+            Math.min(bluePieceCurrentPosition, 49)
+          );
+          currentPosition = bluePieceCurrentPosition;
+        }
+
+        const targetPosition = gridPositions[currentPosition];
+        if (targetPosition) {
+          movingPiece.style.left = `${
+            targetPosition.centerX - movingPiece.width / 2
+          }px`;
+          movingPiece.style.top = `${
+            targetPosition.centerY - movingPiece.height / 2
+          }px`;
+        }
+
+        if (currentPosition >= 49) {
+          setTimeout(() => {
+            window.location.href =
+              mover === 'Player 1'
+                ? '/WinPage/redWin.html'
+                : '/WinPage/blueWin.html';
+          }, 1500);
+          return;
+        }
+
+        const obstacleHit = obstacles.find(
+          (obs) => obs.position === currentPosition
+        );
+        if (obstacleHit) {
+          handleObstacles(obstacleHit, mover);
+        } else {
+          socket.emit('endTurn', mover);
+        }
+      });
+
+      function handleObstacles(obstacle, mover) {
+        if (obstacle.name === 'Obstacle 1') {
+          setTimeout(() => {
+            handleObstacle1(mover);
+          }, 500);
+        } else if (obstacle.name === 'Obstacle 2') {
+          setTimeout(() => {
+            handleObstacle2(mover);
+          }, 500);
+        } else if (obstacle.name === 'Obstacle 3') {
+          setTimeout(() => {
+            handleObstacle3(mover);
+          }, 500);
+        } else if (obstacle.name === 'Obstacle 4') {
+          setTimeout(() => {
+            handleObstacle4(mover);
+          }, 500);
+
+          setTimeout(() => {
+            socket.emit('endTurn', mover);
+          }, 1000);
+        } else {
+          socket.emit('endTurn', mover);
+        }
+      }
+
+      function updatePiecePosition(player) {
+        const position =
+          player === 'Player 1'
+            ? redPieceCurrentPosition
+            : bluePieceCurrentPosition;
+        const piece = document.getElementById(
+          player === 'Player 1' ? 'RedPiece' : 'BluePiece'
+        );
+        const gridPos = gridPositions[position];
+
+        if (gridPos) {
+          piece.style.left = `${gridPos.centerX - piece.width / 2}px`;
+          piece.style.top = `${gridPos.centerY - piece.height / 2}px`;
+        }
+      }
+
+      socket.on('teleportObstacle', (obstacleName) => {
+        const obstacle = obstacles.find((obs) => obs.name === obstacleName);
+        if (obstacle) {
+          let newPosition;
+
+          do {
+            newPosition = Math.floor(Math.random() * 48) + 2;
+          } while (
+            [1, 49].includes(newPosition) ||
+            obstacles.some((obs) => obs.position === newPosition)
+          );
+          obstacle.position = newPosition;
+          io.emit('obstacles', obstacles);
+        }
+      });
+      socket.on(
+        'randomReceive',
+        (randomNumber, randomNumberTwo, mover, otherPlayer) => {
+          const randomNumLabel = document.getElementById('randomNum');
+          randomNumLabel.style.opacity = 0;
+
+          setTimeout(() => {
+            let stepsToMove;
+            let moveMessage = '';
+
+            if (randomNumber === randomNumberTwo) {
+              if (playerRole === mover) {
+                moveMessage = `Unlucky! You rolled a double ${randomNumber}. Moving back ${
+                  randomNumber * 2
+                } spaces.`;
+              } else {
+                moveMessage = `Unlucky! ${mover} rolled a double ${randomNumber}. Moving back ${
+                  randomNumber * 2
+                } spaces.`;
+              }
+              stepsToMove = -randomNumber * 2;
+            } else {
+              if (playerRole === mover) {
+                moveMessage = `You rolled: ${randomNumber} and ${randomNumberTwo}`;
+              } else {
+                moveMessage = `${mover} rolled: ${randomNumber} and ${randomNumberTwo}`;
+              }
+              stepsToMove = randomNumber + randomNumberTwo;
+            }
+            if (playerInjured[mover]) {
+              const originalSteps = stepsToMove;
+              stepsToMove = Math.floor(stepsToMove / 2);
+
+              if (playerRole === mover) {
+                randomNumLabel.textContent = `${moveMessage} but only went ${stepsToMove} because you're injured.`;
+              } else {
+                randomNumLabel.textContent = `${moveMessage} but only went ${stepsToMove} because they’re injured.`;
+              }
+
+              playerInjured[mover] = false;
+            } else {
+              randomNumLabel.textContent = moveMessage;
+            }
+            if (playerRole === mover) {
+              const currentPosition =
+                mover === 'Player 1'
+                  ? redPieceCurrentPosition
+                  : bluePieceCurrentPosition;
+              const newPosition = currentPosition + stepsToMove;
+              if (newPosition < 1) {
+                stepsToMove = -(currentPosition - 1);
+              }
+              socket.emit('move', {
+                mover,
+                steps: stepsToMove,
+              });
+            }
+            randomNumLabel.style.opacity = 1;
+          }, 0);
+        }
+      );
+      socket.on('gridPositions', (position) => {
+        gridPositions = { ...position };
+        redPieceCurrentPosition = 1;
+        bluePieceCurrentPosition = 1;
+
+        const redPiece = document.getElementById('RedPiece');
+        const bluePiece = document.getElementById('BluePiece');
+        const redStart = gridPositions[redPieceCurrentPosition];
+        const blueStart = gridPositions[bluePieceCurrentPosition];
+
+        if (redStart) {
+          redPiece.style.position = 'absolute';
+          redPiece.style.left = `${redStart.centerX - redPiece.width / 2}px`;
+          redPiece.style.top = `${redStart.centerY - redPiece.height / 2}px`;
+        }
+        if (blueStart) {
+          bluePiece.style.position = 'absolute';
+          bluePiece.style.left = `${blueStart.centerX - bluePiece.width / 2}px`;
+          bluePiece.style.top = `${blueStart.centerY - bluePiece.height / 2}px`;
+        }
+
+        obstacles.forEach((obstacle) => {
+          const targetPosition = gridPositions[obstacle.position];
+          if (targetPosition) {
+            const obstacleElement = document.createElement('img');
+            obstacleElement.src = obstacle.imagePath;
+            obstacleElement.alt = obstacle.name;
+            obstacleElement.style.position = 'absolute';
+            const obstacleSize = cellHeight * 0.9;
+            obstacleElement.style.width = `${obstacleSize}px`;
+            obstacleElement.style.height = `${obstacleSize}px`;
+            obstacleElement.style.left = `${
+              targetPosition.centerX - obstacleSize / 2
+            }px`;
+            obstacleElement.style.top = `${
+              targetPosition.centerY - obstacleSize / 2
+            }px`;
+
+            document.body.appendChild(obstacleElement);
+          }
+        });
+      });
+
+      socket.on('obstacles', (obstaclesData) => {
+        obstacles = obstaclesData;
+      });
+
+      document.getElementById('randomButton').addEventListener('click', () => {
+        const rollButton = document.getElementById('randomButton');
+        rollButton.disabled = true;
+        let randomNumber = Math.floor(Math.random() * 6 + 1);
+        let randomNumberTwo = Math.floor(Math.random() * 6 + 1);
+        socket.emit('randomNumber', randomNumber, randomNumberTwo, playerRole);
+      });
+
+      socket.on('redirect', (message) => {
+        window.location.href = 'Redirect/redirect.html';
+        setTimeout(() => {}, 1000);
+      });
+
+      socket.on('updateObstacle', (updatedObstacle) => {
+        const obstacleIndex = obstacles.findIndex(
+          (obs) => obs.name === updatedObstacle.name
+        );
+        if (obstacleIndex !== -1) {
+          obstacles[obstacleIndex].position = updatedObstacle.position;
+        }
+        const obstacleElement = Array.from(
+          document.querySelectorAll('img')
+        ).find((img) => img.alt === updatedObstacle.name);
+
+        if (obstacleElement) {
+          const newGridPosition = gridPositions[updatedObstacle.position];
+          if (newGridPosition) {
+            const obstacleSize = cellHeight * 0.9;
+            obstacleElement.style.left = `${
+              newGridPosition.centerX - obstacleSize / 2
+            }px`;
+            obstacleElement.style.top = `${
+              newGridPosition.centerY - obstacleSize / 2
+            }px`;
+          }
+        }
+      });
+    </script>
+
+    <script src="Initialization/gridBuilder.js"></script>
+  </body>
+</html>

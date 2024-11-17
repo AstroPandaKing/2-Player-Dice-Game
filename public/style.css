@@ -1,0 +1,59 @@
+@import url('https://fonts.googleapis.com/css2?family=Baloo+Paaji+2:wght@400..800&family=Dosis:wght@200..800&family=Roboto:wght@700&display=swap');
+
+* {
+  text-align: center;
+  font-family: 'Dosis', 'Baloo Paaji 2', 'Roboto';
+  color: white;
+}
+
+body {
+  background-color: #0b0c15;
+  padding-top: 2vw;
+}
+
+#randomButton {
+  background: linear-gradient(to right, #ff105f, #ffad06);
+  border: none;
+  padding: 2vw 3vw;
+  border-radius: 1vw;
+  color: #0b0c15;
+  font-size: 3vw;
+  font-weight: bold;
+  cursor: pointer;
+}
+#randomNum {
+  font-weight: bold;
+  font-size: 3vw;
+  color: white;
+  transition: all 0.5s ease-in-out;
+}
+
+.Piece {
+  position: absolute;
+  z-index: 10;
+  transition: left 0.5s ease, top 0.5s ease;
+}
+
+.Roll {
+  font-weight: bold;
+  font-size: 3vw;
+  color: white;
+}
+
+.gridContainer {
+  display: grid;
+}
+
+.grid-item {
+  border: 1px solid #0b0c15;
+  padding: 15px;
+  background-color: #1c1f2c;
+  min-height: 4vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gridArea {
+  margin-bottom: 3vw;
+}

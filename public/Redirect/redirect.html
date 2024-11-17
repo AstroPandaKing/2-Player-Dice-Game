@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Redirect</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Baloo+Paaji+2:wght@400..800&family=Dosis:wght@200..800&family=Roboto:wght@700&display=swap');
+
+      * {
+        text-align: center;
+        font-family: 'Dosis', 'Baloo Paaji 2', 'Roboto';
+        color: white;
+      }
+
+      body {
+        background-color: #0b0c15;
+        padding-top: 2vw;
+      }
+
+      #button {
+        background: linear-gradient(to right, #ff105f, #ffad06);
+        border: none;
+        padding: 5vw 7vw;
+        border-radius: 2vw;
+        color: #0b0c15;
+        font-size: 5vw;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      #text {
+        font-weight: bold;
+        font-size: 4vw;
+        color: white;
+        transition: all 0.5s ease-in-out;
+      }
+    </style>
+  </head>
+  <body>
+    <p id="text">Error: You cannot enter, lobby is full!</p>
+    <br /><br />
+    <button id="button">Return To Browser</button>
+  </body>
+
+  <script>
+    document.getElementById('button').addEventListener('click', () => {
+      window.location.href = 'https://www.google.com';
+    });
+  </script>
+</html>
